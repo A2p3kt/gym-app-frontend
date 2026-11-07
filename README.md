@@ -1,75 +1,175 @@
-# React + TypeScript + Vite
+# Personal Trainer Front-End Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, responsive React + TypeScript front-end application built for personal trainers to manage customer profiles, schedule and track training sessions, visualize appointments in an interactive calendar, and analyze workout statistics with interactive charts.
 
-Currently, two official plugins are available:
+This project connects to the backend Personal Trainer REST API provided as part of the Haaga-Helia Front End Development curriculum.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🚀 Live Demo & Deployment
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Production URL:** *(To be added upon deployment in Task 3)*
+- **GitHub Repository:** *(Current repository)*
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📋 Table of Contents
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- [Overview & Requirements](#-overview--requirements)
+- [Architecture & Tech Stack](#-architecture--tech-stack)
+- [REST API Specifications](#-rest-api-specifications)
+- [Getting Started](#-getting-started)
+- [Available Scripts](#-available-scripts)
+- [Agile Workflow & Documentation](#-agile-workflow--documentation)
+- [Project Roadmap](#-project-roadmap)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🎯 Overview & Requirements
 
+The application fulfills the four key assignment milestones for the Personal Trainer management platform:
+
+1. **Task 1: List Pages & Navigation**
+   - Seamless top navigation between views.
+   - Customer list page with sorting, full-text searching, and pagination.
+   - Training list page displaying customer names and formatted timestamps (`DD.MM.YYYY HH:mm`).
+
+2. **Task 2: Full CRUD Operations**
+   - Customer management: Add new customer, edit existing customer, and delete customer.
+   - Training management: Add training to a specific customer using a date-time picker, and delete training session.
+   - Mandatory confirmation dialogs (Yes/No) before executing any deletion.
+   - Real-time feedback alerts (success/error snackbars).
+
+3. **Task 3: CSV Export, Calendar & Deployment**
+   - Export customer data to CSV with sensitive/action columns filtered out.
+   - Interactive training calendar with Month, Week, and Day views showing scheduled sessions.
+   - Cloud deployment to a hosting platform.
+
+4. **Task 4: Workout Statistics & Analytics**
+   - Dedicated statistics dashboard.
+   - Bar chart visualizing total workout duration (minutes) grouped by activity.
+   - Summary statistics and key metrics.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+- **Framework:** [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Build Tool & Bundler:** [Vite](https://vite.dev/)
+- **UI & Components:** [Material UI (MUI)](https://mui.com/) or lightweight accessible design system
+- **Data Grids:** [AG Grid React](https://www.ag-grid.com/react-data-grid/) or MUI DataGrid
+- **Date Handling:** [Day.js](https://day.js.org/) for formatting and date manipulations
+- **Charts:** [Recharts](https://recharts.org/) for responsive statistical charts
+- **Calendar:** [React Big Calendar](https://github.com/jquense/react-big-calendar) / compatible calendar engine
+- **Utility Libraries:** [Lodash](https://lodash.com/) for data grouping and aggregation; [PapaParse](https://www.papaparse.com/) for CSV generation
+- **Code Quality:** ESLint 10 + TypeScript ESLint
+
+### Project Structure (Target)
+
+```text
+gym-app/
+├── public/                 # Static assets
+├── src/
+│   ├── assets/             # Images, icons, static graphics
+│   ├── components/         # Reusable UI components (Navbar, ConfirmDialog, etc.)
+│   │   ├── common/         # ConfirmDialog, LoadingSpinner, NotificationSnackbar
+│   │   ├── customer/       # CustomerTable, AddCustomerModal, EditCustomerModal
+│   │   └── training/       # TrainingTable, AddTrainingModal
+│   ├── pages/              # View/Page components
+│   │   ├── CustomersPage.tsx
+│   │   ├── TrainingsPage.tsx
+│   │   ├── CalendarPage.tsx
+│   │   └── StatisticsPage.tsx
+│   ├── services/           # REST API client & service modules
+│   │   ├── api.ts          # Base fetch/axios configuration
+│   │   ├── customerService.ts
+│   │   └── trainingService.ts
+│   ├── types/              # TypeScript interfaces & domain types
+│   │   ├── customer.ts
+│   │   └── training.ts
+│   ├── utils/              # Helper functions (date formatting, CSV export, stats)
+│   ├── App.tsx             # Root application shell & routing
+│   ├── main.tsx            # Entry point
+│   └── index.css           # Global styling
+├── AGENT.md                # Agent operational guide & strict approval workflow
+├── PLAN.md                 # Active sprint backlog & roadmapped checkboxes
+├── PROJECT_SPEC.md         # Master blueprint, API contracts & user stories
+└── README.md               # Project documentation (this file)
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🌐 REST API Specifications
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The application interfaces with the Personal Trainer REST API:
+- **Base URL:** `https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/api/`
+- **Database Reset:** `POST https://customer-rest-service-frontend-personaltrainer.2.rahtiapp.fi/reset`
+- **API Documentation:** [https://juhahinkula.github.io/personaltrainerdocs/](https://juhahinkula.github.io/personaltrainerdocs/)
 
+### Key Endpoints:
+- `GET /customers`: Returns `{ _embedded: { customers: Customer[] } }`
+- `POST /customers`: Creates a new customer
+- `PUT /customers/{id}`: Updates customer details
+- `DELETE /customers/{id}`: Deletes a customer and cascades to their trainings
+- `GET /trainings`: Returns raw trainings with HATEOAS links
+- `GET /gettrainings`: Returns complete list of trainings with embedded customer details
+- `POST /trainings`: Creates a training linked to a customer
+- `DELETE /trainings/{id}`: Deletes a specific training session
+
+---
+
+## ⚡ Getting Started
+
+### Prerequisites
+- Node.js (v18.x or v20.x+ recommended)
+- npm or yarn
+
+### Installation
+```bash
+# Clone the repository (if not already local)
+git clone <repo-url>
+cd gym-app
+
+# Install dependencies
+npm install
 ```
+
+### Running Locally
+```bash
+# Start Vite development server
+npm run dev
+```
+Open your browser and navigate to `http://localhost:5173`.
+
+### Building for Production
+```bash
+# Build TypeScript and bundle via Vite
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+### Code Quality Check
+```bash
+# Run ESLint
+npm run lint
+```
+
+---
+
+## 📐 Agile Workflow & Documentation
+
+This repository follows a disciplined 4-document Agile workflow:
+1. **[README.md](README.md)**: Architecture overview, setup, and general documentation.
+2. **[AGENT.md](AGENT.md)**: AI agent rules of engagement, coding standards, no-go patterns, and strict approval gate.
+3. **[PROJECT_SPEC.md](PROJECT_SPEC.md)**: Master product backlog, data models, and feature specifications.
+4. **[PLAN.md](PLAN.md)**: Active sprint backlog with granular, numbered milestone tasks and status tracking.
+
+---
+
+## 📌 Strict Approval Gate
+
+- All development is conducted strictly **one task at a time**.
+- Before writing code, the active task in `PLAN.md` must be reviewed.
+- After finishing each task, `PLAN.md` is updated, work is summarized, and user approval is required before moving forward.
