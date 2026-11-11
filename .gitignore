@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+PLAN.md
+AGENT.md
+PROJECT_SPEC.md
