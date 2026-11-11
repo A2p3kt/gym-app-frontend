@@ -15,8 +15,8 @@
 
 ## 🎯 Current Status
 
-- **Active Milestone:** Milestone 2 - Task 2: Customer & Training CRUD Operations
-- **Current Task:** Completed Milestone 0 & Milestone 1 (Task 1). Waiting for user approval to proceed to Task 2.1 (Implement Reusable Confirmation Dialog & Feedback Notifications for CRUD).
+- **Active Milestone:** Milestone 3 - Task 3: Customer CSV Export, Calendar & Deployment
+- **Current Task:** Completed Task 3.1. Waiting for user approval to proceed to Task 3.2 (Implement Training Calendar Page).
 
 ---
 
@@ -72,28 +72,28 @@ flowchart LR
 
 ## ⚡ Milestone 2: Task 2 - Customer & Training CRUD Operations
 
-- [ ] **Task 2.1: Implement Reusable Confirmation Dialog & Feedback Notifications**
+- [x] **Task 2.1: Implement Reusable Confirmation Dialog & Feedback Notifications**
   - Create generic `ConfirmDialog` component (Yes / Cancel).
   - Create snackbar alert notification system for success and error messages.
-- [ ] **Task 2.2: Add Customer Functionality**
+- [x] **Task 2.2: Add Customer Functionality**
   - Create `AddCustomerDialog` form modal with fields: firstname, lastname, email, phone, streetaddress, postcode, city.
   - Handle form validation, POST request to `/customers`, state refresh, and success notification.
-- [ ] **Task 2.3: Edit Customer Functionality**
+- [x] **Task 2.3: Edit Customer Functionality**
   - Create `EditCustomerDialog` pre-filled with selected customer data.
   - Handle PUT request to customer self href / ID, state refresh, and notification.
-- [ ] **Task 2.4: Delete Customer Functionality with Confirmation**
+- [x] **Task 2.4: Delete Customer Functionality with Confirmation**
   - Add delete action button to customer row.
   - Trigger `ConfirmDialog` before deletion ("Are you sure you want to delete this customer? All associated training sessions will also be deleted.").
   - Handle DELETE request, handle 204 response, refresh list, and notify user.
-- [ ] **Task 2.5: Add Training to Customer with Date-Time Picker**
+- [x] **Task 2.5: Add Training to Customer with Date-Time Picker**
   - Create `AddTrainingDialog` modal.
   - Include Date-Time Picker component, activity input, duration input, and customer selection.
   - Handle POST request to `/trainings` with ISO-8601 formatted date and customer link.
-- [ ] **Task 2.6: Delete Training Functionality with Confirmation**
+- [x] **Task 2.6: Delete Training Functionality with Confirmation**
   - Add delete action button to training row.
   - Trigger `ConfirmDialog` before deletion.
   - Handle DELETE request to `/trainings/{id}`, refresh list, and notify user.
-- [ ] **Task 2.7: Milestone 2 Verification & Polish**
+- [x] **Task 2.7: Milestone 2 Verification & Polish**
   - Test all CRUD flows end-to-end.
   - Run lint and build checks.
   - Capture verification screenshots for Task 2 assignment submission.
@@ -102,7 +102,7 @@ flowchart LR
 
 ## 📅 Milestone 3: Task 3 - Customer CSV Export, Calendar & Deployment
 
-- [ ] **Task 3.1: Implement Customer CSV Export**
+- [x] **Task 3.1: Implement Customer CSV Export**
   - Create export utility that extracts customer data excluding action columns, internal links, or IDs.
   - Add "Export to CSV" button on the Customers page.
   - Validate output CSV file formatting and data accuracy.
