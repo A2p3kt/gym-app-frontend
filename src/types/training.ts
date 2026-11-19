@@ -1,3 +1,7 @@
+/**
+ * @fileoverview Training entity types, API payloads, and calendar event contracts.
+ */
+
 import type { CustomerSummary } from './customer';
 
 export interface TrainingLinks {
@@ -39,4 +43,21 @@ export interface TrainingListResponse {
   _embedded: {
     trainings: TrainingRaw[];
   };
+}
+
+/**
+ * Calendar event representation mapped from a TrainingWithCustomer record
+ * for display inside React Big Calendar.
+ */
+export interface CalendarTrainingEvent {
+  /** Unique numeric ID of the training session */
+  id: number;
+  /** Display title formatted as "Activity / Customer Name" */
+  title: string;
+  /** Session start timestamp */
+  start: Date;
+  /** Session end timestamp computed from start + duration (minutes) */
+  end: Date;
+  /** Underlying training record with embedded customer details for inspection */
+  resource: TrainingWithCustomer;
 }
