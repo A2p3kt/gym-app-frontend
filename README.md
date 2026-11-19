@@ -72,6 +72,7 @@ gym-app/
 ├── src/
 │   ├── assets/             # Images, icons, static graphics
 │   ├── components/         # Reusable UI components (Navbar, ConfirmDialog, etc.)
+│   │   ├── calendar/       # CalendarToolbar.tsx, CalendarEventItem.tsx, TrainingEventDialog.tsx
 │   │   ├── common/         # ConfirmDialog, LoadingSpinner, NotificationSnackbar
 │   │   ├── customer/       # CustomerTable, AddCustomerModal, EditCustomerModal
 │   │   └── training/       # TrainingTable, AddTrainingModal
@@ -87,7 +88,7 @@ gym-app/
 │   ├── types/              # TypeScript interfaces & domain types
 │   │   ├── customer.ts
 │   │   └── training.ts
-│   ├── utils/              # Helper functions (date formatting, CSV export, stats)
+│   ├── utils/              # Helper functions (calendarUtils.ts, csvExport.ts, stats)
 │   ├── App.tsx             # Root application shell & routing
 │   ├── main.tsx            # Entry point
 │   └── index.css           # Global styling

@@ -16,7 +16,7 @@
 ## 🎯 Current Status
 
 - **Active Milestone:** Milestone 3 - Task 3: Customer CSV Export, Calendar & Deployment
-- **Current Task:** Completed Task 3.1. Waiting for user approval to proceed to Task 3.2 (Implement Training Calendar Page).
+- **Current Task:** Completed Tasks 3.2 and 3.3. Waiting for user approval to proceed to Task 3.4 (Cloud Deployment Setup & Verification).
 
 ---
 
@@ -106,11 +106,11 @@ flowchart LR
   - Create export utility that extracts customer data excluding action columns, internal links, or IDs.
   - Add "Export to CSV" button on the Customers page.
   - Validate output CSV file formatting and data accuracy.
-- [ ] **Task 3.2: Implement Training Calendar Page**
+- [x] **Task 3.2: Implement Training Calendar Page**
   - Build `CalendarPage` component integrated with calendar library.
   - Map training sessions to calendar events (title: `Activity / Customer Name`, start time, end time computed from duration).
   - Implement Month, Week, and Day views with intuitive navigation (prev, next, today).
-- [ ] **Task 3.3: Calendar Event Details & Inspection**
+- [x] **Task 3.3: Calendar Event Details & Inspection**
   - Add interactive event modal or popover showing full session info (Customer, Phone, Email, Activity, Duration, Date).
 - [ ] **Task 3.4: Cloud Deployment Setup & Verification**
   - Configure production build settings for cloud deployment (e.g. Vercel, Netlify, or GitHub Pages).
