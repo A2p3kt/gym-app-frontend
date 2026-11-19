@@ -110,7 +110,9 @@ function App() {
           {currentTab === 'trainings' && (
             <TrainingsPage key={`trainings-${dbResetCounter}`} onNotify={handleNotify} />
           )}
-          {currentTab === 'calendar' && <CalendarPage />}
+          {currentTab === 'calendar' && (
+            <CalendarPage key={`calendar-${dbResetCounter}`} onNotify={handleNotify} />
+          )}
           {currentTab === 'statistics' && <StatisticsPage />}
         </Container>
 
