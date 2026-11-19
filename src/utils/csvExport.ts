@@ -60,3 +60,4 @@ export function exportCustomersToCsv(customers: Customer[], filename?: string): 
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
