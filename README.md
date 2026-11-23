@@ -8,8 +8,8 @@ This project connects to the backend Personal Trainer REST API provided as part 
 
 ## 🚀 Live Demo & Deployment
 
-- **Production URL:** *(add after deploying — see [Deployment](#-deployment))*
-- **GitHub Repository:** *(Current repository)*
+- **Production URL:** <https://gym-app-wn8e.onrender.com> (hosted on [Render](https://render.com/) as a static site)
+- **GitHub Repository:** <https://github.com/A2p3kt/gym-app-frontend>
 
 ---
 
@@ -171,6 +171,18 @@ paths), and the app has no client-side router, so the same build works on any st
 no rewrite rules needed. The REST API allows cross-origin requests (`Access-Control-Allow-Origin: *`),
 so the deployed site can call it directly.
 
+### Current deployment: Render
+
+The live site (<https://gym-app-wn8e.onrender.com>) is a Render **Static Site** connected to this
+GitHub repository:
+
+- **Build command:** `npm install && npm run build`
+- **Publish directory:** `dist`
+
+Render rebuilds and redeploys automatically on every push to `main`.
+
+### Other hosting options
+
 **Option A — Netlify (no CLI needed):** run `npm run build`, then drag the `dist/` folder onto
 <https://app.netlify.com/drop>. Or connect the GitHub repo with build command `npm run build` and
 publish directory `dist`.
@@ -182,4 +194,4 @@ automatically (build `npm run build`, output `dist`).
 (e.g. `npx gh-pages -d dist`) and enable Pages for that branch in the repository settings.
 The relative `base` makes it work under `https://<user>.github.io/<repo>/`.
 
-After deploying, open the site, check that customers and trainings load, and add the URL at the top of this README.
+After deploying, open the site and check that customers and trainings load.
