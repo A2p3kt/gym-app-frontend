@@ -2,7 +2,7 @@
  * @fileoverview Customer management list page displaying sortable and filterable customer data with full CRUD actions.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -23,11 +23,15 @@ import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { AgGridReact } from 'ag-grid-react';
 import type { ColDef, ICellRendererParams } from 'ag-grid-community';
-import type { Customer, AlertSeverity } from '../types';
+import type { Customer, NotifyFn } from '../types';
 import { getCustomers, deleteCustomer } from '../services/customerService';
+import { useApiData } from '../hooks/useApiData';
+import { gridTheme } from '../gridSetup';
 import { exportCustomersToCsv } from '../utils/csvExport';
-import { AddCustomerDialog } from '../components/customers/AddCustomerDialog';
-import { EditCustomerDialog } from '../components/customers/EditCustomerDialog';
+import { getCustomerHref } from '../utils/customerUtils';
+import { getErrorMessage } from '../utils/errors';
+import { formatCustomerFullName } from '../utils/formatters';
+import { AddCustomerDialog, EditCustomerDialog } from '../components/customers';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { AddTrainingDialog } from '../components/trainings/AddTrainingDialog';
 
@@ -36,8 +40,22 @@ import { AddTrainingDialog } from '../components/trainings/AddTrainingDialog';
  */
 export interface CustomersPageProps {
   /** Callback to trigger feedback snackbar notifications */
-  onNotify: (message: string, severity: AlertSeverity) => void;
+  onNotify: NotifyFn;
 }
+
+/**
+ * Which dialog (if any) is open, and for which customer.
+ * Using one state value instead of several booleans guarantees only one dialog is open at a time.
+ */
+type CustomerDialogState =
+  | { type: 'none' }
+  | { type: 'add' }
+  | { type: 'edit'; customer: Customer }
+  | { type: 'delete'; customer: Customer }
+  | { type: 'addTraining'; customer: Customer };
+
+/** Shared sizing for the plain text columns. */
+const TEXT_COLUMN: ColDef<Customer> = { sortable: true, filter: true, flex: 1, minWidth: 120 };
 
 /**
  * Customer List View presenting all clients in a responsive, sortable AG Grid table with full CRUD capabilities.
@@ -46,187 +64,69 @@ export interface CustomersPageProps {
  * @returns JSX Element rendering the customer management table.
  */
 export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { data: customers, loading, reload } = useApiData(
+    getCustomers,
+    [],
+    onNotify,
+    'Failed to fetch customers'
+  );
   const [quickFilterText, setQuickFilterText] = useState<string>('');
-
-  // Modals state
-  const [addDialogOpen, setAddDialogOpen] = useState<boolean>(false);
-  const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [dialog, setDialog] = useState<CustomerDialogState>({ type: 'none' });
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
-  const [addTrainingDialogOpen, setAddTrainingDialogOpen] = useState<boolean>(false);
-  const [customerForTraining, setCustomerForTraining] = useState<Customer | null>(null);
+  const closeDialog = () => setDialog({ type: 'none' });
 
   /**
-   * Fetches customer list on manual user refresh.
-   */
-  const handleRefresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getCustomers();
-      setCustomers(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch customers';
-      onNotify(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [onNotify]);
-
-  useEffect(() => {
-    let isMounted = true;
-    getCustomers()
-      .then((data) => {
-        if (isMounted) {
-          setCustomers(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          const message = err instanceof Error ? err.message : 'Failed to fetch customers';
-          onNotify(message, 'error');
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [onNotify]);
-
-  /**
-   * Opens the edit modal for a designated customer.
-   */
-  const handleOpenEdit = useCallback((customer: Customer) => {
-    setSelectedCustomer(customer);
-    setEditDialogOpen(true);
-  }, []);
-
-  /**
-   * Opens the deletion confirmation dialog for a designated customer.
-   */
-  const handleOpenDelete = useCallback((customer: Customer) => {
-    setCustomerToDelete(customer);
-    setDeleteDialogOpen(true);
-  }, []);
-
-  /**
-   * Executes customer deletion after user confirms in dialog.
+   * Deletes the customer after the user confirmed in the dialog.
+   * The backend also deletes all of that customer's trainings (cascade).
    */
   const handleConfirmDelete = async () => {
-    if (!customerToDelete) return;
+    if (dialog.type !== 'delete') return;
+    const { customer } = dialog;
 
-    const customerUrl = customerToDelete._links?.self?.href || customerToDelete._links?.customer?.href;
+    const customerUrl = getCustomerHref(customer);
     if (!customerUrl) {
       onNotify('Unable to delete customer: Missing link reference.', 'error');
-      setDeleteDialogOpen(false);
+      closeDialog();
       return;
     }
 
     setIsDeleting(true);
     try {
       await deleteCustomer(customerUrl);
-      onNotify(
-        `Customer ${customerToDelete.firstname} ${customerToDelete.lastname} deleted successfully.`,
-        'success'
-      );
-      setDeleteDialogOpen(false);
-      setCustomerToDelete(null);
-      handleRefresh();
+      onNotify(`Customer ${formatCustomerFullName(customer)} deleted successfully.`, 'success');
+      closeDialog();
+      reload();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete customer';
-      onNotify(message, 'error');
+      onNotify(getErrorMessage(err, 'Failed to delete customer'), 'error');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  /**
-   * Opens the training scheduling modal pre-configured for a designated customer.
-   */
-  const handleOpenAddTraining = useCallback((customer: Customer) => {
-    setCustomerForTraining(customer);
-    setAddTrainingDialogOpen(true);
-  }, []);
-
-  /**
-   * Triggers sanitized export of customer collection to CSV file.
-   */
+  /** Downloads all customers as a CSV file (data columns only, no links or actions). */
   const handleExportCsv = () => {
     try {
       exportCustomersToCsv(customers);
       onNotify('Customer records exported to CSV successfully.', 'success');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to export CSV';
-      onNotify(message, 'error');
+      onNotify(getErrorMessage(err, 'Failed to export CSV'), 'error');
     }
   };
 
   /**
    * Column definitions for the customer AG Grid.
+   * Memoized so AG Grid does not rebuild its columns on every render.
+   * `setDialog` is a state setter, which React guarantees is stable, so no dependencies are needed.
    */
   const columnDefs = useMemo<ColDef<Customer>[]>(() => [
-    {
-      field: 'firstname',
-      headerName: 'First Name',
-      sortable: true,
-      filter: true,
-      flex: 1,
-      minWidth: 120,
-    },
-    {
-      field: 'lastname',
-      headerName: 'Last Name',
-      sortable: true,
-      filter: true,
-      flex: 1,
-      minWidth: 120,
-    },
-    {
-      field: 'streetaddress',
-      headerName: 'Street Address',
-      sortable: true,
-      filter: true,
-      flex: 1.4,
-      minWidth: 160,
-    },
-    {
-      field: 'postcode',
-      headerName: 'Postcode',
-      sortable: true,
-      filter: true,
-      width: 110,
-    },
-    {
-      field: 'city',
-      headerName: 'City',
-      sortable: true,
-      filter: true,
-      flex: 1,
-      minWidth: 120,
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      sortable: true,
-      filter: true,
-      flex: 1.4,
-      minWidth: 180,
-    },
-    {
-      field: 'phone',
-      headerName: 'Phone',
-      sortable: true,
-      filter: true,
-      flex: 1,
-      minWidth: 130,
-    },
+    { ...TEXT_COLUMN, field: 'firstname', headerName: 'First Name' },
+    { ...TEXT_COLUMN, field: 'lastname', headerName: 'Last Name' },
+    { ...TEXT_COLUMN, field: 'streetaddress', headerName: 'Street Address', flex: 1.4, minWidth: 160 },
+    { field: 'postcode', headerName: 'Postcode', sortable: true, filter: true, width: 110 },
+    { ...TEXT_COLUMN, field: 'city', headerName: 'City' },
+    { ...TEXT_COLUMN, field: 'email', headerName: 'Email', flex: 1.4, minWidth: 180 },
+    { ...TEXT_COLUMN, field: 'phone', headerName: 'Phone', minWidth: 130 },
     {
       headerName: 'Actions',
       sortable: false,
@@ -242,7 +142,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
               <IconButton
                 size="small"
                 color="secondary"
-                onClick={() => handleOpenAddTraining(customer)}
+                aria-label={`Add training for ${formatCustomerFullName(customer)}`}
+                onClick={() => setDialog({ type: 'addTraining', customer })}
               >
                 <DirectionsRunIcon fontSize="small" />
               </IconButton>
@@ -251,7 +152,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
               <IconButton
                 size="small"
                 color="primary"
-                onClick={() => handleOpenEdit(customer)}
+                aria-label={`Edit ${formatCustomerFullName(customer)}`}
+                onClick={() => setDialog({ type: 'edit', customer })}
               >
                 <EditIcon fontSize="small" />
               </IconButton>
@@ -260,7 +162,8 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
               <IconButton
                 size="small"
                 color="error"
-                onClick={() => handleOpenDelete(customer)}
+                aria-label={`Delete ${formatCustomerFullName(customer)}`}
+                onClick={() => setDialog({ type: 'delete', customer })}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -269,16 +172,15 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
         );
       },
     },
-  ], [handleOpenAddTraining, handleOpenEdit, handleOpenDelete]);
+  ], []);
 
-  const defaultColDef = useMemo<ColDef>(() => ({
-    resizable: true,
-    floatingFilter: false,
-  }), []);
+  const defaultColDef = useMemo<ColDef>(() => ({ resizable: true }), []);
+
+  const customerToDelete = dialog.type === 'delete' ? dialog.customer : null;
 
   return (
     <Box sx={{ py: 2 }}>
-      <Paper sx={{ p: 3, mb: 2, borderRadius: 2 }} elevation={1}>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 2, borderRadius: 2 }} elevation={1}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 2 }}>
           <Box>
             <Typography variant="h5" component="h1" sx={{ fontWeight: 700, color: 'primary.dark' }}>
@@ -295,8 +197,7 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
               color="primary"
               size="small"
               startIcon={<PersonAddIcon />}
-              onClick={() => setAddDialogOpen(true)}
-              sx={{ fontWeight: 600 }}
+              onClick={() => setDialog({ type: 'add' })}
             >
               Add Customer
             </Button>
@@ -307,7 +208,6 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
               startIcon={<FileDownloadIcon />}
               onClick={handleExportCsv}
               disabled={loading || customers.length === 0}
-              sx={{ fontWeight: 600 }}
             >
               Export CSV
             </Button>
@@ -324,40 +224,26 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
                     </InputAdornment>
                   ),
                 },
+                htmlInput: { 'aria-label': 'Search customers' },
               }}
               sx={{ width: { xs: '100%', sm: 260 } }}
             />
-            <IconButton
-              onClick={handleRefresh}
-              disabled={loading}
-              title="Refresh Customers"
-              color="primary"
-            >
-              <RefreshIcon />
-            </IconButton>
+            <Tooltip title="Refresh Customers">
+              <span>
+                <IconButton onClick={reload} disabled={loading} aria-label="Refresh customers" color="primary">
+                  <RefreshIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Box>
         </Box>
 
-        <Box
-          className="ag-theme-material"
-          sx={{
-            height: 600,
-            width: '100%',
-            position: 'relative',
-            '& .ag-root-wrapper': {
-              borderRadius: 1,
-              border: '1px solid #e2e8f0',
-            },
-          }}
-        >
+        <Box sx={{ height: 600, width: '100%', position: 'relative' }}>
           {loading && (
             <Box
               sx={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
+                inset: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -369,48 +255,51 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
             </Box>
           )}
           <AgGridReact<Customer>
+            theme={gridTheme}
             rowData={customers}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
+            // The self link is the customer's unique identity (the API exposes no id field).
+            getRowId={(params) => getCustomerHref(params.data)}
             quickFilterText={quickFilterText}
-            pagination={true}
+            pagination
             paginationPageSize={10}
             paginationPageSizeSelector={[10, 25, 50, 100]}
-            animateRows={true}
+            overlayNoRowsTemplate="No customers found. Add one or reset the demo database."
           />
         </Box>
       </Paper>
 
-      {/* Add Customer Modal */}
-      <AddCustomerDialog
-        open={addDialogOpen}
-        onClose={() => setAddDialogOpen(false)}
-        onCustomerAdded={handleRefresh}
-        onNotify={onNotify}
-      />
+      {/* Dialogs are mounted only while open, so each one starts with fresh form state. */}
+      {dialog.type === 'add' && (
+        <AddCustomerDialog open onClose={closeDialog} onCustomerAdded={reload} onNotify={onNotify} />
+      )}
 
-      {/* Edit Customer Modal */}
-      {editDialogOpen && selectedCustomer && (
+      {dialog.type === 'edit' && (
         <EditCustomerDialog
-          key={selectedCustomer._links?.self?.href || 'edit-customer'}
-          open={editDialogOpen}
-          customer={selectedCustomer}
-          onClose={() => {
-            setEditDialogOpen(false);
-            setSelectedCustomer(null);
-          }}
-          onCustomerUpdated={handleRefresh}
+          open
+          customer={dialog.customer}
+          onClose={closeDialog}
+          onCustomerUpdated={reload}
           onNotify={onNotify}
         />
       )}
 
-      {/* Delete Customer Confirmation Dialog */}
+      {dialog.type === 'addTraining' && (
+        <AddTrainingDialog
+          open
+          initialCustomer={dialog.customer}
+          onClose={closeDialog}
+          onNotify={onNotify}
+        />
+      )}
+
       <ConfirmDialog
-        open={deleteDialogOpen}
+        open={dialog.type === 'delete'}
         title="Delete Customer?"
         message={
           customerToDelete
-            ? `Are you sure you want to delete ${customerToDelete.firstname} ${customerToDelete.lastname}? All associated training sessions will also be deleted permanently.`
+            ? `Are you sure you want to delete ${formatCustomerFullName(customerToDelete)}? All associated training sessions will also be deleted permanently.`
             : 'Are you sure you want to delete this customer?'
         }
         confirmText="Delete Customer"
@@ -418,27 +307,9 @@ export const CustomersPage: React.FC<CustomersPageProps> = ({ onNotify }) => {
         loading={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => {
-          if (!isDeleting) {
-            setDeleteDialogOpen(false);
-            setCustomerToDelete(null);
-          }
+          if (!isDeleting) closeDialog();
         }}
       />
-
-      {/* Add Training for Selected Customer */}
-      {addTrainingDialogOpen && (
-        <AddTrainingDialog
-          key={customerForTraining?._links?.self?.href || 'add-training'}
-          open={addTrainingDialogOpen}
-          initialCustomer={customerForTraining}
-          onClose={() => {
-            setAddTrainingDialogOpen(false);
-            setCustomerForTraining(null);
-          }}
-          onTrainingAdded={handleRefresh}
-          onNotify={onNotify}
-        />
-      )}
     </Box>
   );
 };
