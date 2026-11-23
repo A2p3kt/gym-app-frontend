@@ -4,7 +4,8 @@
 
 import dayjs from 'dayjs';
 import { dayjsLocalizer } from 'react-big-calendar';
-import type { CalendarTrainingEvent, CustomerSummary, TrainingWithCustomer } from '../types';
+import type { CalendarTrainingEvent, TrainingWithCustomer } from '../types';
+import { DATE_TIME_FORMAT, formatCustomerFullName } from './formatters';
 
 /**
  * Curated WCAG-AA high-contrast color palette harmonious with the app's navy/teal theme
@@ -28,20 +29,6 @@ const ACTIVITY_PALETTE: readonly string[] = [
 export const calendarLocalizer = dayjsLocalizer(dayjs);
 
 /**
- * Formats a customer summary into a full display name.
- *
- * @param customer - Embedded customer summary or null when unassigned.
- * @returns Full name ("Firstname Lastname") or "Unassigned" if unavailable.
- */
-export function formatCustomerFullName(customer: CustomerSummary | null): string {
-  if (!customer) {
-    return 'Unassigned';
-  }
-  const fullName = `${customer.firstname || ''} ${customer.lastname || ''}`.trim();
-  return fullName || 'Unassigned';
-}
-
-/**
  * Maps a single API training record into a React Big Calendar event object.
  * Computes the end timestamp by adding the workout duration in minutes to the start timestamp.
  *
@@ -56,6 +43,7 @@ export function mapTrainingToCalendarEvent(
     return null;
   }
 
+  // A missing/negative duration would make end < start, which breaks the calendar layout.
   const safeDuration =
     Number.isFinite(training.duration) && training.duration > 0 ? training.duration : 0;
   const endDayjs = startDayjs.add(safeDuration, 'minute');
@@ -93,12 +81,13 @@ export function mapTrainingsToCalendarEvents(
  * @param activity - Name of the training activity (e.g., "Spinning", "Gym Training").
  * @returns Hex color string from the curated high-contrast palette.
  */
-export function getActivityColor(activity: string): string {
-  const normalized = activity.trim().toLowerCase();
+export function getActivityColor(activity: string | null | undefined): string {
+  const normalized = (activity ?? '').trim().toLowerCase();
   if (!normalized) {
     return ACTIVITY_PALETTE[0];
   }
 
+  // Simple string hash (same idea as Java's String.hashCode); `| 0` keeps it a 32-bit int.
   let hash = 0;
   for (let i = 0; i < normalized.length; i += 1) {
     hash = (hash * 31 + normalized.charCodeAt(i)) | 0;
@@ -121,8 +110,8 @@ export function formatEventDateRange(start: Date, end: Date): string {
   const endDayjs = dayjs(end);
 
   if (startDayjs.isSame(endDayjs, 'day')) {
-    return `${startDayjs.format('DD.MM.YYYY HH:mm')} – ${endDayjs.format('HH:mm')}`;
+    return `${startDayjs.format(DATE_TIME_FORMAT)} – ${endDayjs.format('HH:mm')}`;
   }
 
-  return `${startDayjs.format('DD.MM.YYYY HH:mm')} – ${endDayjs.format('DD.MM.YYYY HH:mm')}`;
+  return `${startDayjs.format(DATE_TIME_FORMAT)} – ${endDayjs.format(DATE_TIME_FORMAT)}`;
 }

@@ -6,7 +6,8 @@ import React from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import type { EventProps } from 'react-big-calendar';
 import type { CalendarTrainingEvent } from '../../types';
-import { formatCustomerFullName, formatEventDateRange } from '../../utils/calendarUtils';
+import { formatEventDateRange } from '../../utils/calendarUtils';
+import { formatCustomerFullName } from '../../utils/formatters';
 
 /**
  * Custom event cell content component for React Big Calendar.

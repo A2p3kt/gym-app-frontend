@@ -25,11 +25,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import type { CalendarTrainingEvent } from '../../types';
-import {
-  formatCustomerFullName,
-  formatEventDateRange,
-  getActivityColor,
-} from '../../utils/calendarUtils';
+import { formatEventDateRange, getActivityColor } from '../../utils/calendarUtils';
+import { formatCustomerFullName } from '../../utils/formatters';
 
 /**
  * Props for the TrainingEventDialog component.
@@ -86,6 +83,7 @@ export const TrainingEventDialog: React.FC<TrainingEventDialogProps> = ({
   event,
   onClose,
 }) => {
+  // Nothing selected: render nothing (the dialog is closed anyway).
   if (!event) {
     return null;
   }
@@ -95,6 +93,7 @@ export const TrainingEventDialog: React.FC<TrainingEventDialogProps> = ({
   const activityColor = getActivityColor(training.activity);
   const formattedDateRange = formatEventDateRange(start, end);
 
+  // Build "Street, Postcode City", skipping any parts that are empty.
   const street = customer?.streetaddress?.trim();
   const locality = [customer?.postcode?.trim(), customer?.city?.trim()].filter(Boolean).join(' ');
   const fullAddress = [street, locality].filter(Boolean).join(', ');

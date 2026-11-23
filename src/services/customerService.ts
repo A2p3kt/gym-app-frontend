@@ -6,6 +6,19 @@ import { apiFetch } from './api';
 import type { Customer, CustomerFormData, CustomerListResponse } from '../types';
 
 /**
+ * Builds the request path for one customer.
+ * Accepts either a full self link (what the UI normally has) or a numeric ID.
+ *
+ * @param idOrUrl - Numeric customer ID or canonical self link.
+ * @returns Absolute URL or relative `/customers/{id}` path for apiFetch.
+ */
+function customerEndpoint(idOrUrl: string | number): string {
+  return typeof idOrUrl === 'string' && idOrUrl.startsWith('http')
+    ? idOrUrl
+    : `/customers/${idOrUrl}`;
+}
+
+/**
  * Fetches all customers from the backend.
  *
  * @returns Array of Customer entities.
@@ -22,10 +35,7 @@ export async function getCustomers(): Promise<Customer[]> {
  * @returns Customer entity.
  */
 export async function getCustomer(idOrUrl: string | number): Promise<Customer> {
-  const endpoint = typeof idOrUrl === 'string' && idOrUrl.startsWith('http')
-    ? idOrUrl
-    : `/customers/${idOrUrl}`;
-  return await apiFetch<Customer>(endpoint);
+  return await apiFetch<Customer>(customerEndpoint(idOrUrl));
 }
 
 /**
@@ -52,10 +62,7 @@ export async function updateCustomer(
   idOrUrl: string | number,
   customer: CustomerFormData
 ): Promise<Customer> {
-  const endpoint = typeof idOrUrl === 'string' && idOrUrl.startsWith('http')
-    ? idOrUrl
-    : `/customers/${idOrUrl}`;
-  return await apiFetch<Customer>(endpoint, {
+  return await apiFetch<Customer>(customerEndpoint(idOrUrl), {
     method: 'PUT',
     body: JSON.stringify(customer),
   });
@@ -68,10 +75,7 @@ export async function updateCustomer(
  * @param idOrUrl - Numeric customer ID or canonical self link.
  */
 export async function deleteCustomer(idOrUrl: string | number): Promise<void> {
-  const endpoint = typeof idOrUrl === 'string' && idOrUrl.startsWith('http')
-    ? idOrUrl
-    : `/customers/${idOrUrl}`;
-  await apiFetch<void>(endpoint, {
+  await apiFetch<void>(customerEndpoint(idOrUrl), {
     method: 'DELETE',
   });
 }

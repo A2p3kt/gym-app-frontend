@@ -22,10 +22,12 @@ export const RESET_DB_URL = 'https://customer-rest-service-frontend-personaltrai
  * @throws Error when HTTP response is not ok.
  */
 export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  // HATEOAS links from the API are already absolute URLs; plain paths are joined to the base URL.
   const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
     ? endpoint
     : `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+  // Send JSON by default whenever there is a body (all our POST/PUT payloads are JSON strings).
   const headers = new Headers(options?.headers || {});
   if (!headers.has('Content-Type') && options?.body && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
@@ -49,6 +51,8 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     throw new Error(errorMessage);
   }
 
+  // DELETE returns 204 No Content: there is no body to parse. The double cast is needed
+  // because TypeScript cannot know that callers use T = void for these requests.
   if (response.status === 204) {
     return undefined as unknown as T;
   }
@@ -58,6 +62,7 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     return await response.json() as T;
   }
 
+  // Non-JSON responses (e.g. plain-text messages) are returned as a string.
   const text = await response.text();
   return text as unknown as T;
 }
