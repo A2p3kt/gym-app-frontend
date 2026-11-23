@@ -19,8 +19,9 @@ import PeopleIcon from '@mui/icons-material/People';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import type { NavigationTab, AlertSeverity } from '../../types';
+import type { NavigationTab, NotifyFn } from '../../types';
 import { resetDatabase } from '../../services/api';
+import { getErrorMessage } from '../../utils/errors';
 import { ConfirmDialog } from './ConfirmDialog';
 
 /**
@@ -32,7 +33,7 @@ export interface NavbarProps {
   /** Callback fired when user clicks a navigation tab */
   onTabChange: (tab: NavigationTab) => void;
   /** Callback to trigger feedback snackbar notifications */
-  onNotify: (message: string, severity: AlertSeverity) => void;
+  onNotify: NotifyFn;
   /** Callback fired when remote database has been successfully reset */
   onDatabaseReset: () => void;
 }
@@ -52,10 +53,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  /** MUI Tabs passes the clicked tab's `value`, which is one of our NavigationTab ids. */
   const handleTabChange = (_event: React.SyntheticEvent, newTab: NavigationTab) => {
     onTabChange(newTab);
   };
 
+  /** Calls POST /reset, then tells App to remount the current page so it refetches. */
   const handleConfirmReset = async () => {
     setResetting(true);
     try {
@@ -64,8 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       setResetDialogOpen(false);
       onDatabaseReset();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reset database';
-      onNotify(message, 'error');
+      onNotify(getErrorMessage(err, 'Failed to reset database'), 'error');
     } finally {
       setResetting(false);
     }
@@ -87,9 +89,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             onChange={handleTabChange}
             textColor="inherit"
             indicatorColor="secondary"
+            // Scrollable so the four tabs never overflow the screen on phones.
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             aria-label="main navigation tabs"
             sx={{
               minHeight: 48,
+              // On phones the tabs drop to their own full-width row below the title and reset button.
+              width: { xs: '100%', md: 'auto' },
+              order: { xs: 3, md: 0 },
               '& .MuiTab-root': {
                 minHeight: 48,
                 textTransform: 'none',
