@@ -8,7 +8,7 @@ This project connects to the backend Personal Trainer REST API provided as part 
 
 ## 🚀 Live Demo & Deployment
 
-- **Production URL:** *(To be added upon deployment in Task 3)*
+- **Production URL:** *(add after deploying — see [Deployment](#-deployment))*
 - **GitHub Repository:** *(Current repository)*
 
 ---
@@ -19,7 +19,7 @@ This project connects to the backend Personal Trainer REST API provided as part 
 - [Architecture & Tech Stack](#-architecture--tech-stack)
 - [REST API Specifications](#-rest-api-specifications)
 - [Getting Started](#-getting-started)
-- [Available Scripts](#-available-scripts)
+- [Deployment](#-deployment)
 - [Agile Workflow & Documentation](#-agile-workflow--documentation)
 - [Project Roadmap](#-project-roadmap)
 
@@ -56,46 +56,59 @@ The application fulfills the four key assignment milestones for the Personal Tra
 
 - **Framework:** [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - **Build Tool & Bundler:** [Vite](https://vite.dev/)
-- **UI & Components:** [Material UI (MUI)](https://mui.com/) or lightweight accessible design system
-- **Data Grids:** [AG Grid React](https://www.ag-grid.com/react-data-grid/) or MUI DataGrid
+- **UI & Components:** [Material UI (MUI) v9](https://mui.com/) + Emotion
+- **Data Grids:** [AG Grid React v36](https://www.ag-grid.com/react-data-grid/) (Theming API, only the needed modules registered)
 - **Date Handling:** [Day.js](https://day.js.org/) for formatting and date manipulations
-- **Charts:** [Recharts](https://recharts.org/) for responsive statistical charts
-- **Calendar:** [React Big Calendar](https://github.com/jquense/react-big-calendar) / compatible calendar engine
-- **Utility Libraries:** [Lodash](https://lodash.com/) for data grouping and aggregation; [PapaParse](https://www.papaparse.com/) for CSV generation
-- **Code Quality:** ESLint 10 + TypeScript ESLint
+- **Charts:** [Recharts v3](https://recharts.org/) for the responsive statistics bar chart
+- **Calendar:** [React Big Calendar](https://github.com/jquense/react-big-calendar) with the Day.js localizer
+- **Utility Libraries:** [Lodash](https://lodash.com/) (`groupBy`, `sumBy`) for statistics; [PapaParse](https://www.papaparse.com/) for CSV generation
+- **Code Quality:** ESLint 9 + TypeScript ESLint + `eslint-plugin-react-hooks`
 
-### Project Structure (Target)
+### How the code fits together
+
+- **Navigation:** `App.tsx` keeps the active tab in state (no router needed for four views) and lazy-loads each page.
+- **Data loading:** every page uses the `useApiData` hook (`src/hooks/useApiData.ts`), which calls a service
+  function, shows errors in the snackbar, and exposes `reload()` for after create/update/delete.
+- **API calls** only happen in `src/services/`; components never call `fetch` directly.
+- **Customers are identified by their HATEOAS self link** (the API has no customer `id` field);
+  see `getCustomerHref` in `src/utils/customerUtils.ts`.
+- **Notifications:** `App` owns a single snackbar and passes `onNotify` down to pages and dialogs.
+
+### Project Structure
 
 ```text
 gym-app/
-├── public/                 # Static assets
+├── public/                     # Static assets (favicon)
+├── docs/
+│   ├── LEARNING_DIARY.md       # Draft learning diary (Task 5.3)
+│   └── VIDEO_SCRIPT.md         # Draft video presentation script (Task 5.4)
 ├── src/
-│   ├── assets/             # Images, icons, static graphics
-│   ├── components/         # Reusable UI components (Navbar, ConfirmDialog, etc.)
-│   │   ├── calendar/       # CalendarToolbar.tsx, CalendarEventItem.tsx, TrainingEventDialog.tsx
-│   │   ├── common/         # ConfirmDialog, LoadingSpinner, NotificationSnackbar
-│   │   ├── customer/       # CustomerTable, AddCustomerModal, EditCustomerModal
-│   │   └── training/       # TrainingTable, AddTrainingModal
-│   ├── pages/              # View/Page components
-│   │   ├── CustomersPage.tsx
-│   │   ├── TrainingsPage.tsx
-│   │   ├── CalendarPage.tsx
-│   │   └── StatisticsPage.tsx
-│   ├── services/           # REST API client & service modules
-│   │   ├── api.ts          # Base fetch/axios configuration
-│   │   ├── customerService.ts
-│   │   └── trainingService.ts
-│   ├── types/              # TypeScript interfaces & domain types
-│   │   ├── customer.ts
-│   │   └── training.ts
-│   ├── utils/              # Helper functions (calendarUtils.ts, csvExport.ts, stats)
-│   ├── App.tsx             # Root application shell & routing
-│   ├── main.tsx            # Entry point
-│   └── index.css           # Global styling
-├── AGENT.md                # Agent operational guide & strict approval workflow
-├── PLAN.md                 # Active sprint backlog & roadmapped checkboxes
-├── PROJECT_SPEC.md         # Master blueprint, API contracts & user stories
-└── README.md               # Project documentation (this file)
+│   ├── components/
+│   │   ├── calendar/           # CalendarToolbar, CalendarEventItem (hover tooltip), TrainingEventDialog
+│   │   ├── common/             # Navbar, ConfirmDialog, NotificationSnackbar
+│   │   ├── customers/          # CustomerFormDialog (shared form), AddCustomerDialog, EditCustomerDialog
+│   │   ├── statistics/         # StatCard, ActivityDurationChart, ActivityStatsTable
+│   │   └── trainings/          # AddTrainingDialog
+│   ├── hooks/
+│   │   └── useApiData.ts       # Load data from a service + reload(), with snackbar error reporting
+│   ├── pages/                  # CustomersPage, TrainingsPage, CalendarPage, StatisticsPage
+│   ├── services/               # api.ts (fetch wrapper, DB reset), customerService.ts, trainingService.ts
+│   ├── types/                  # Domain models, API payloads, view models
+│   ├── utils/
+│   │   ├── calendarUtils.ts    # Training -> calendar event mapping, activity colors
+│   │   ├── csvExport.ts        # Customer CSV export (no links/actions)
+│   │   ├── customerUtils.ts    # Customer self link, form validation/trimming
+│   │   ├── errors.ts           # Caught error -> user-facing message
+│   │   ├── formatters.ts       # DD.MM.YYYY HH:mm dates, customer full name, minutes -> hours
+│   │   └── statistics.ts       # Lodash aggregation for the statistics page
+│   ├── App.tsx                 # App shell: theme, navbar, lazy pages, snackbar
+│   ├── gridSetup.ts            # AG Grid module registration + grid theme
+│   ├── theme.ts                # MUI theme + brand colors
+│   └── main.tsx                # Entry point
+├── AGENT.md                    # Agent operational guide & strict approval workflow
+├── PLAN.md                     # Sprint backlog & milestone checkboxes
+├── PROJECT_SPEC.md             # Master blueprint, API contracts & user stories
+└── README.md                   # Project documentation (this file)
 ```
 
 ---
@@ -159,6 +172,28 @@ npm run lint
 
 ---
 
+## ☁️ Deployment
+
+`npm run build` produces a static site in `dist/`. `vite.config.ts` sets `base: './'` (relative asset
+paths), and the app has no client-side router, so the same build works on any static host —
+no rewrite rules needed. The REST API allows cross-origin requests (`Access-Control-Allow-Origin: *`),
+so the deployed site can call it directly.
+
+**Option A — Netlify (no CLI needed):** run `npm run build`, then drag the `dist/` folder onto
+<https://app.netlify.com/drop>. Or connect the GitHub repo with build command `npm run build` and
+publish directory `dist`.
+
+**Option B — Vercel:** import the GitHub repo at <https://vercel.com/new>. Vercel detects Vite
+automatically (build `npm run build`, output `dist`).
+
+**Option C — GitHub Pages:** build, then publish `dist/` to a `gh-pages` branch
+(e.g. `npx gh-pages -d dist`) and enable Pages for that branch in the repository settings.
+The relative `base` makes it work under `https://<user>.github.io/<repo>/`.
+
+After deploying, open the site, check that customers and trainings load, and add the URL at the top of this README.
+
+---
+
 ## 📐 Agile Workflow & Documentation
 
 This repository follows a disciplined 4-document Agile workflow:
@@ -171,6 +206,6 @@ This repository follows a disciplined 4-document Agile workflow:
 
 ## 📌 Strict Approval Gate
 
-- All development is conducted strictly **one task at a time**.
+- All development is normally conducted strictly **one task at a time** (see PLAN.md for the current status).
 - Before writing code, the active task in `PLAN.md` must be reviewed.
 - After finishing each task, `PLAN.md` is updated, work is summarized, and user approval is required before moving forward.
