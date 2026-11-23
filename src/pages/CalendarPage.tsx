@@ -2,7 +2,7 @@
  * @fileoverview Interactive Training Calendar page supporting Month, Week, and Day views plus event inspection.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -16,8 +16,9 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { Calendar, Views } from 'react-big-calendar';
 import type { Components, Formats, View } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import type { AlertSeverity, CalendarTrainingEvent } from '../types';
+import type { CalendarTrainingEvent, NotifyFn } from '../types';
 import { getTrainingsWithCustomer } from '../services/trainingService';
+import { useApiData } from '../hooks/useApiData';
 import {
   calendarLocalizer,
   getActivityColor,
@@ -34,13 +35,13 @@ import {
  */
 export interface CalendarPageProps {
   /** Callback to trigger feedback snackbar notifications */
-  onNotify: (message: string, severity: AlertSeverity) => void;
+  onNotify: NotifyFn;
 }
 
 /** Supported React Big Calendar view modes */
 const CALENDAR_VIEWS: View[] = [Views.MONTH, Views.WEEK, Views.DAY];
 
-/** Default vertical scroll anchor (07:00) for Week and Day time grids */
+/** Default vertical scroll anchor (07:00) for Week and Day time grids (only the time part is used) */
 const DEFAULT_SCROLL_TIME = new Date(1970, 0, 1, 7, 0, 0);
 
 /** Suppresses native browser title tooltips so the custom MUI Tooltip renders cleanly */
@@ -74,49 +75,19 @@ const CALENDAR_COMPONENTS: Components<CalendarTrainingEvent> = {
  * @returns JSX Element rendering the interactive Training Calendar view.
  */
 export const CalendarPage: React.FC<CalendarPageProps> = ({ onNotify }) => {
-  const [events, setEvents] = useState<CalendarTrainingEvent[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { data: trainings, loading, reload } = useApiData(
+    getTrainingsWithCustomer,
+    [],
+    onNotify,
+    'Failed to fetch training schedule'
+  );
+  // Convert API trainings into calendar events (start/end Dates + title); recomputed only when data changes.
+  const events = useMemo(() => mapTrainingsToCalendarEvents(trainings), [trainings]);
+
+  // The calendar is "controlled": we own the current view and date so the custom toolbar can drive them.
   const [currentView, setCurrentView] = useState<View>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarTrainingEvent | null>(null);
-
-  /**
-   * Manually refreshes calendar events from the /gettrainings endpoint.
-   */
-  const handleRefresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const trainings = await getTrainingsWithCustomer();
-      setEvents(mapTrainingsToCalendarEvents(trainings));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch training schedule';
-      onNotify(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [onNotify]);
-
-  useEffect(() => {
-    let isMounted = true;
-    getTrainingsWithCustomer()
-      .then((trainings) => {
-        if (isMounted) {
-          setEvents(mapTrainingsToCalendarEvents(trainings));
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          const message = err instanceof Error ? err.message : 'Failed to fetch training schedule';
-          onNotify(message, 'error');
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [onNotify]);
 
   /**
    * Updates the active calendar period date when navigating (Prev, Next, Today, or drilldown).
@@ -154,7 +125,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onNotify }) => {
 
   return (
     <Box sx={{ py: 2 }}>
-      <Paper sx={{ p: 3, mb: 2, borderRadius: 2 }} elevation={1}>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 2, borderRadius: 2 }} elevation={1}>
         <Box
           sx={{
             display: 'flex',
@@ -177,7 +148,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({ onNotify }) => {
           <Tooltip title="Refresh Schedule">
             <span>
               <IconButton
-                onClick={handleRefresh}
+                onClick={reload}
                 disabled={loading}
                 aria-label="Refresh Schedule"
                 color="primary"
