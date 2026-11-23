@@ -20,8 +20,6 @@ This project connects to the backend Personal Trainer REST API provided as part 
 - [REST API Specifications](#-rest-api-specifications)
 - [Getting Started](#-getting-started)
 - [Deployment](#-deployment)
-- [Agile Workflow & Documentation](#-agile-workflow--documentation)
-- [Project Roadmap](#-project-roadmap)
 
 ---
 
@@ -79,9 +77,6 @@ The application fulfills the four key assignment milestones for the Personal Tra
 ```text
 gym-app/
 ├── public/                     # Static assets (favicon)
-├── docs/
-│   ├── LEARNING_DIARY.md       # Draft learning diary (Task 5.3)
-│   └── VIDEO_SCRIPT.md         # Draft video presentation script (Task 5.4)
 ├── src/
 │   ├── components/
 │   │   ├── calendar/           # CalendarToolbar, CalendarEventItem (hover tooltip), TrainingEventDialog
@@ -105,9 +100,6 @@ gym-app/
 │   ├── gridSetup.ts            # AG Grid module registration + grid theme
 │   ├── theme.ts                # MUI theme + brand colors
 │   └── main.tsx                # Entry point
-├── AGENT.md                    # Agent operational guide & strict approval workflow
-├── PLAN.md                     # Sprint backlog & milestone checkboxes
-├── PROJECT_SPEC.md             # Master blueprint, API contracts & user stories
 └── README.md                   # Project documentation (this file)
 ```
 
@@ -191,21 +183,3 @@ automatically (build `npm run build`, output `dist`).
 The relative `base` makes it work under `https://<user>.github.io/<repo>/`.
 
 After deploying, open the site, check that customers and trainings load, and add the URL at the top of this README.
-
----
-
-## 📐 Agile Workflow & Documentation
-
-This repository follows a disciplined 4-document Agile workflow:
-1. **[README.md](README.md)**: Architecture overview, setup, and general documentation.
-2. **[AGENT.md](AGENT.md)**: AI agent rules of engagement, coding standards, no-go patterns, and strict approval gate.
-3. **[PROJECT_SPEC.md](PROJECT_SPEC.md)**: Master product backlog, data models, and feature specifications.
-4. **[PLAN.md](PLAN.md)**: Active sprint backlog with granular, numbered milestone tasks and status tracking.
-
----
-
-## 📌 Strict Approval Gate
-
-- All development is normally conducted strictly **one task at a time** (see PLAN.md for the current status).
-- Before writing code, the active task in `PLAN.md` must be reviewed.
-- After finishing each task, `PLAN.md` is updated, work is summarized, and user approval is required before moving forward.
