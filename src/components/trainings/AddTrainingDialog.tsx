@@ -2,7 +2,7 @@
  * @fileoverview Dialog modal form for scheduling and adding a new training workout session.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,9 +18,12 @@ import {
 } from '@mui/material';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import dayjs from 'dayjs';
-import type { Customer, NewTrainingPayload, AlertSeverity } from '../../types';
+import type { Customer, NewTrainingPayload, NotifyFn } from '../../types';
 import { getCustomers } from '../../services/customerService';
 import { addTraining } from '../../services/trainingService';
+import { useApiData } from '../../hooks/useApiData';
+import { getCustomerHref } from '../../utils/customerUtils';
+import { getErrorMessage } from '../../utils/errors';
 
 /**
  * Props for the AddTrainingDialog component.
@@ -28,25 +31,35 @@ import { addTraining } from '../../services/trainingService';
 export interface AddTrainingDialogProps {
   /** Controls modal visibility */
   open: boolean;
-  /** Optional customer to pre-select when opened directly from a customer table row */
+  /** Optional customer to pre-select (and lock) when opened from a customer table row */
   initialCustomer?: Customer | null;
   /** Callback fired when dialog is cancelled or closed */
   onClose: () => void;
-  /** Callback fired after training is successfully scheduled */
-  onTrainingAdded: () => void;
+  /** Optional callback fired after training is successfully scheduled (e.g. to refresh a list) */
+  onTrainingAdded?: () => void;
   /** Callback to trigger feedback snackbar notifications */
-  onNotify: (message: string, severity: AlertSeverity) => void;
+  onNotify: NotifyFn;
 }
 
-/** Form data structure for adding training */
+/**
+ * Raw form values. Everything is a string because that is what the inputs produce;
+ * values are converted to the API types only when building the payload.
+ */
 interface TrainingFormState {
+  /** Self link of the selected customer */
   customerHref: string;
+  /** Activity name */
   activity: string;
+  /** Duration in minutes, as typed */
   duration: string;
+  /** Local date-time from the `datetime-local` input, format "YYYY-MM-DDTHH:mm" */
   date: string;
 }
 
-/** Pre-set popular activities for convenience */
+/** Validation messages keyed by form field. */
+type TrainingFormErrors = Partial<Record<keyof TrainingFormState, string>>;
+
+/** Pre-set popular activities shown as quick-pick buttons under the Activity field. */
 const POPULAR_ACTIVITIES = [
   'Gym Training',
   'Spinning',
@@ -59,8 +72,40 @@ const POPULAR_ACTIVITIES = [
   'Yoga',
 ];
 
+/** Format produced and accepted by `<input type="datetime-local">`. */
+const DATETIME_LOCAL_FORMAT = 'YYYY-MM-DDTHH:mm';
+
 /**
- * Modal form allowing trainers to record new workouts associated with clients.
+ * Validates the training form.
+ *
+ * @param form - Current form values.
+ * @returns Errors object; empty when the form is valid.
+ */
+function validateTrainingForm(form: TrainingFormState): TrainingFormErrors {
+  const errors: TrainingFormErrors = {};
+
+  if (!form.customerHref) {
+    errors.customerHref = 'Please select a customer for this training session';
+  }
+  if (!form.activity.trim()) {
+    errors.activity = 'Activity name is required';
+  }
+  const duration = Number(form.duration);
+  if (!form.duration.trim() || !Number.isInteger(duration) || duration <= 0) {
+    errors.duration = 'Please enter a whole number of minutes greater than 0';
+  }
+  if (!form.date) {
+    errors.date = 'Date and time are required';
+  } else if (!dayjs(form.date).isValid()) {
+    errors.date = 'Invalid date and time selected';
+  }
+
+  return errors;
+}
+
+/**
+ * Modal form allowing trainers to record new workouts associated with clients (POST /trainings).
+ * Mount it only while open so the form starts fresh each time.
  *
  * @param props - Component props.
  * @returns JSX Element rendering the Add Training form dialog.
@@ -72,120 +117,81 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
   onTrainingAdded,
   onNotify,
 }) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loadingCustomers, setLoadingCustomers] = useState<boolean>(true);
+  const { data: customers, loading: loadingCustomers } = useApiData(
+    getCustomers,
+    [],
+    onNotify,
+    'Failed to load customer list'
+  );
   const [submitting, setSubmitting] = useState<boolean>(false);
-
   const [formState, setFormState] = useState<TrainingFormState>(() => ({
-    customerHref: initialCustomer?._links?.self?.href || initialCustomer?._links?.customer?.href || '',
+    customerHref: initialCustomer ? getCustomerHref(initialCustomer) : '',
     activity: '',
     duration: '45',
-    date: dayjs().format('YYYY-MM-DDTHH:mm'),
+    date: dayjs().format(DATETIME_LOCAL_FORMAT),
   }));
+  const [errors, setErrors] = useState<TrainingFormErrors>({});
 
-  const [errors, setErrors] = useState<Partial<Record<keyof TrainingFormState, string>>>({});
+  // When opened from a customer row, the customer is fixed, so the dropdown only needs
+  // that one option. This also avoids MUI's "out-of-range value" warning that occurs when
+  // the select's value is not yet among the options while the full list is loading.
+  const customerOptions: Customer[] = initialCustomer ? [initialCustomer] : customers;
+  const showLoadingOption = !initialCustomer && loadingCustomers;
 
-  // Fetch the customer options for dropdown selection
-  useEffect(() => {
-    let isMounted = true;
-    getCustomers()
-      .then((data) => {
-        if (isMounted) {
-          setCustomers(data);
-          setLoadingCustomers(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          const message = err instanceof Error ? err.message : 'Failed to load customer list';
-          onNotify(message, 'error');
-          setLoadingCustomers(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [onNotify]);
-
-  /**
-   * Updates form field value and clears corresponding field error.
-   */
-  const handleFieldChange = (field: keyof TrainingFormState) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormState((prev) => ({ ...prev, [field]: e.target.value }));
+  /** Sets one field and clears its validation error. */
+  const setField = (field: keyof TrainingFormState, value: string) => {
+    setFormState((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
-  /**
-   * Validates form fields before submission.
-   *
-   * @returns True if valid, false otherwise.
-   */
-  const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof TrainingFormState, string>> = {};
+  /** Returns an input change handler bound to one field. */
+  const handleFieldChange = (field: keyof TrainingFormState) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setField(field, e.target.value);
 
-    if (!formState.customerHref) {
-      newErrors.customerHref = 'Please select a customer for this training session';
-    }
-    if (!formState.activity.trim()) {
-      newErrors.activity = 'Activity name is required';
-    }
-    const parsedDuration = Number(formState.duration);
-    if (!formState.duration.trim() || isNaN(parsedDuration) || parsedDuration <= 0) {
-      newErrors.duration = 'Please specify a positive duration in minutes';
-    }
-    if (!formState.date) {
-      newErrors.date = 'Date and time are required';
-    } else if (!dayjs(formState.date).isValid()) {
-      newErrors.date = 'Invalid date and time selected';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  /**
-   * Handles modal cancellation.
-   */
+  /** Closes the dialog unless a save is in progress. */
   const handleCancel = () => {
     if (!submitting) {
       onClose();
     }
   };
 
-  /**
-   * Submits the new training session to the REST service.
-   */
+  /** Validates and submits the new training session to the REST service. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) {
+
+    const validationErrors = validateTrainingForm(formState);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
       return;
     }
 
     setSubmitting(true);
     try {
       const payload: NewTrainingPayload = {
+        // The input gives local time; toISOString() converts it to UTC for the API.
         date: dayjs(formState.date).toISOString(),
         activity: formState.activity.trim(),
-        duration: Math.round(Number(formState.duration)),
+        duration: Number(formState.duration),
         customer: formState.customerHref,
       };
 
       await addTraining(payload);
       onNotify(`Training "${payload.activity}" scheduled successfully.`, 'success');
       onClose();
-      onTrainingAdded();
+      onTrainingAdded?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to schedule training';
-      onNotify(message, 'error');
+      onNotify(getErrorMessage(err, 'Failed to schedule training'), 'error');
     } finally {
       setSubmitting(false);
     }
   };
+
+  /** Helper text under the customer select. */
+  const customerHelperText =
+    errors.customerHref || (showLoadingOption ? 'Loading clients...' : 'Select client for this workout');
 
   return (
     <Dialog
@@ -193,17 +199,11 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
       onClose={handleCancel}
       maxWidth="sm"
       fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: 2,
-            p: 1,
-          },
-        },
-      }}
+      aria-labelledby="add-training-dialog-title"
+      slotProps={{ paper: { sx: { borderRadius: 2, p: 1 } } }}
     >
       <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle id="add-training-dialog-title" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <DirectionsRunIcon color="secondary" />
           <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
             Schedule New Training
@@ -221,27 +221,27 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
               value={formState.customerHref}
               onChange={handleFieldChange('customerHref')}
               error={Boolean(errors.customerHref)}
-              helperText={errors.customerHref || (loadingCustomers ? 'Loading clients...' : 'Select client for this workout')}
+              helperText={customerHelperText}
               disabled={submitting || Boolean(initialCustomer)}
             >
-              {loadingCustomers ? (
+              {showLoadingOption && (
                 <MenuItem disabled value="">
                   <em>Loading customers...</em>
                 </MenuItem>
-              ) : customers.length === 0 ? (
+              )}
+              {!showLoadingOption && customerOptions.length === 0 && (
                 <MenuItem disabled value="">
                   <em>No registered customers found</em>
                 </MenuItem>
-              ) : (
-                customers.map((c) => {
-                  const href = c._links?.self?.href || c._links?.customer?.href;
-                  return (
-                    <MenuItem key={href} value={href}>
-                      {c.firstname} {c.lastname} ({c.email})
-                    </MenuItem>
-                  );
-                })
               )}
+              {customerOptions.map((c) => {
+                const href = getCustomerHref(c);
+                return (
+                  <MenuItem key={href} value={href}>
+                    {c.firstname} {c.lastname} ({c.email})
+                  </MenuItem>
+                );
+              })}
             </TextField>
 
             <TextField
@@ -258,27 +258,31 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
               autoFocus
             />
 
+            {/* Quick-pick buttons; the selected one is highlighted */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mt: -1 }}>
-              {POPULAR_ACTIVITIES.map((act) => (
-                <Button
-                  key={act}
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setFormState((prev) => ({ ...prev, activity: act }))}
-                  disabled={submitting}
-                  sx={{
-                    borderRadius: 4,
-                    fontSize: '0.75rem',
-                    py: 0.2,
-                    px: 1,
-                    textTransform: 'none',
-                    bgcolor: formState.activity === act ? 'primary.light' : 'transparent',
-                    color: formState.activity === act ? 'common.white' : 'text.primary',
-                  }}
-                >
-                  {act}
-                </Button>
-              ))}
+              {POPULAR_ACTIVITIES.map((act) => {
+                const isSelected = formState.activity === act;
+                return (
+                  <Button
+                    key={act}
+                    size="small"
+                    variant="outlined"
+                    aria-pressed={isSelected}
+                    onClick={() => setField('activity', act)}
+                    disabled={submitting}
+                    sx={{
+                      borderRadius: 4,
+                      fontSize: '0.75rem',
+                      py: 0.2,
+                      px: 1,
+                      bgcolor: isSelected ? 'primary.light' : 'transparent',
+                      color: isSelected ? 'common.white' : 'text.primary',
+                    }}
+                  >
+                    {act}
+                  </Button>
+                );
+              })}
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
@@ -294,6 +298,7 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
                 helperText={errors.duration}
                 disabled={submitting}
                 slotProps={{
+                  htmlInput: { min: 1, step: 1 },
                   input: {
                     endAdornment: <InputAdornment position="end">min</InputAdornment>,
                   },
@@ -312,9 +317,8 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
                 helperText={errors.date}
                 disabled={submitting}
                 slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
+                  // Keep the label above the input; the native picker always shows a placeholder.
+                  inputLabel: { shrink: true },
                 }}
               />
             </Box>
@@ -322,12 +326,7 @@ export const AddTrainingDialog: React.FC<AddTrainingDialogProps> = ({
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={handleCancel}
-            disabled={submitting}
-            variant="outlined"
-            color="inherit"
-          >
+          <Button onClick={handleCancel} disabled={submitting} variant="outlined" color="inherit">
             Cancel
           </Button>
           <Button
