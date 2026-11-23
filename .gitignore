@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Local planning & course deliverable drafts (not part of the app)
+docs/
+PLAN.md
+AGENT.md
+PROJECT_SPEC.md
